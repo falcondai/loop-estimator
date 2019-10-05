@@ -5,7 +5,7 @@ from mrp import MarkovRewardProcess
 
 
 def exact(p, r, discount):
-    '''Solve for the exact values via matrix inversion. Good for few states.'''
+    '''Solve for the exact values via matrix inversion. Good for a few states.'''
     n_states = p.shape[0]
     v = np.linalg.inv(np.eye(n_states) - discount * p) @ r.reshape((-1, 1))
     return v.reshape(-1)
@@ -29,13 +29,14 @@ def geometric(n_states, transitions, discount):
     Sample termination time from a geometric distribution with parameter (1 - discount) and the total undiscounted cost independently. Compute the empirical mean.
 
     Ref:
+        C. Derman, Finite State Markoc Decision Processes, Academic Press, New York, 1970.
         B. Fox and P. Glynn, "Simulating discounted cost", Management Sci. 35, 1297-1315 (1989).
     '''
     n_steps = len(transitions)
     visit = np.zeros(n_states)
     empirical_mean = np.zeros(n_states)
     for t, (state, reward) in enumerate(transitions):
-        # Draw a termination time from the geometric distribution with p = 1 - discount
+        # Draw a termination time from the geometric distribution with p = 1 - discount (terminate w.p. p)
         ter = np.random.geometric(1 - discount)
         # Return early if there are not enough steps left
         if n_steps < t + ter:
@@ -50,6 +51,35 @@ def geometric(n_states, transitions, discount):
     return empirical_mean
 
 
+def geometric_single(state, transitions, discount, seed=None):
+    random = np.random.RandomState(seed)
+    ss, rr = zip(*transitions)
+    t0 = ss.index(state)
+    tl = len(transitions)
+    n_fragments = 0
+    undiscounted_return = 0
+    v_hats = []
+    while t0 < tl:
+        fragment_len = random.geometric(1 - discount)
+        if tl - t0 < fragment_len:
+            # Not enough transitions, terminate
+            break
+        # New sample fragment
+        undiscounted_fragment_return = np.sum(rr[t0:t0 + fragment_len])
+        # Update estimates
+        undiscounted_return = n_fragments / (n_fragments + 1) * undiscounted_return + 1 / (n_fragments + 1) * undiscounted_fragment_return
+        n_fragments += 1
+        v_hats.append(undiscounted_return)
+        # Find the next visit
+        try:
+            t0 = t0 + fragment_len + ss[t0 + fragment_len:].index(state)
+        except ValueError:
+            # No more visits, terminate
+            break
+    v_hat = undiscounted_return
+    return v_hat, v_hats
+
+
 def td(n_states, transitions, alpha_func, discount):
     v_hat = np.zeros(n_states)
     visit = np.zeros(n_states)
@@ -61,8 +91,24 @@ def td(n_states, transitions, alpha_func, discount):
     return v_hat
 
 
+def td_k(k, n_states, transitions, discount):
+    # Initial estimates for state values
+    v_hat = np.zeros(n_states)
+    visit = np.zeros(n_states)
+    gammas = discount ** np.arange(k)
+    ss, rr = zip(*transitions)
+    for t, state in enumerate(ss[:-k]):
+        next_state = ss[t + k]
+        alpha = 1 / (visit[state] + 1)
+        # Update estimate
+        partial_return = np.sum(gammas * rr[t:t+k])
+        v_hat[state] = alpha * (partial_return + (discount ** k) * v_hat[next_state]) + (1 - alpha) * v_hat[state]
+        visit[state] += 1
+    return v_hat
+
+
 def loop(n_states, transitions, discount):
-    # Find the recurrances of the same state
+    # Find the recurrences of the same state
     reward_return = defaultdict(lambda: [])
     # Saving the partial return and time of the last visit to x
     last_visit = {}
@@ -85,7 +131,39 @@ def loop(n_states, transitions, discount):
     return v_pi
 
 
+def loop_single(state, transitions, discount):
+    # Delayed renewal process
+    last_visited_at = None
+    running_discounted_return = 0
+    visits = 0
+    renewal_discount = 0
+    renewal_discounted_return = 0
+    v_hats = []
+    for s, r in transitions:
+        if s == state:
+            if last_visited_at is not None:
+                # End of a loop
+                # Update estimates
+                n = visits + 1
+                renewal_discount = visits / n * renewal_discount + 1 / n * (discount ** last_visited_at)
+                renewal_discounted_return = visits / n * renewal_discounted_return + 1 / n * running_discounted_return
+                visits += 1
+                v_hats.append(renewal_discounted_return / (1 - renewal_discount))
+            # Reset
+            last_visited_at = 0
+            running_discounted_return = 0
+        # Update the running partial return
+        if last_visited_at is not None:
+            running_discounted_return += (discount ** last_visited_at) * r
+            # Increment the clock
+            last_visited_at += 1
+    # Plug in the renewal reward identity
+    v_hat = renewal_discounted_return / (1 - renewal_discount)
+    return v_hat, v_hats
+
+
 def model_based(n_states, transitions, discount):
+    # O(S^2) space
     p_hat = np.zeros((n_states, n_states))
     r_hat = np.zeros(n_states)
     visit = np.zeros(n_states)
@@ -96,6 +174,8 @@ def model_based(n_states, transitions, discount):
         visit[x] += 1
     p_hat /= p_hat.sum(1).reshape((-1, 1))
     r_hat /= visit
+    # Plug-in estimator
+    # O(n^3) for matrix inversion
     v_hat = exact(p_hat, r_hat, discount)
     return v_hat
 
