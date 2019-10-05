@@ -29,9 +29,14 @@ class MarkovRewardProcess:
         self.state = self.random.choice(self.n_states, p=self.p[self.state])
         return self.state, reward
 
-    def sample_transition(self):
-        while True:
-            yield self.step()
+    def sample_transition(self, size=None):
+        i = 0
+        state = self.state
+        while size is None or i < size:
+            next_state, reward = self.step()
+            yield state, reward
+            i += 1
+            state = next_state
 
 
 class MarkovDecisionProcess:
@@ -64,9 +69,10 @@ class MarkovDecisionProcess:
             self.state = self.random.choice(self.n_states, p=self.p[action, self.state])
             return action, self.state, reward
 
-        def sample_transition(self):
+        def sample_transition(self, pi):
             while True:
-                yield self.step()
+                action = pi(self.state)
+                yield self.step(action)
 
 
 class MdpPi(MarkovRewardProcess):
