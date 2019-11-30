@@ -162,22 +162,27 @@ def loop_single(state, transitions, discount):
     return v_hat, v_hats
 
 
-def model_based(n_states, transitions, discount):
+def model_based(n_states, transitions, discount, state=None):
     # O(S^2) space
-    p_hat = np.zeros((n_states, n_states))
-    r_hat = np.zeros(n_states)
-    visit = np.zeros(n_states)
+    if state is None:
+        p_hat = np.zeros((n_states, n_states))
+        r_hat = np.zeros(n_states)
+        visit = np.zeros(n_states)
+    else:
+        p_hat, r_hat, visit = state
     for t, (x, r) in enumerate(transitions[:-1]):
         y, _ = transitions[t + 1]
         r_hat[x] += r
         p_hat[x, y] += 1
         visit[x] += 1
+    if np.any(0 == visit):
+        return np.zeros(n_states), (p_hat, r_hat, visit)
     p_hat /= p_hat.sum(1).reshape((-1, 1))
     r_hat /= visit
     # Plug-in estimator
     # O(n^3) for matrix inversion
     v_hat = exact(p_hat, r_hat, discount)
-    return v_hat
+    return v_hat, (p_hat, r_hat, visit)
 
 
 if __name__ == '__main__':
