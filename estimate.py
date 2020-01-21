@@ -80,6 +80,38 @@ def geometric_single(state, transitions, discount, seed=None):
     return v_hat, v_hats
 
 
+def geometric_single_times(state, transitions, discount, seed=None):
+    random = np.random.RandomState(seed)
+    n_fragments = 0
+    undiscounted_return = 0
+    ss, rr = zip(*transitions)
+    # Find the first visit
+    t0 = ss.index(state)
+    tl = len(transitions)
+    v_hats = [0]
+    times = [0]
+    while t0 < tl:
+        fragment_len = random.geometric(1 - discount)
+        if tl - t0 < fragment_len:
+            # Not enough transitions
+            break
+        # New sample fragment
+        undiscounted_fragment_return = np.sum(rr[t0:t0 + fragment_len])
+        # Update estimates
+        undiscounted_return = n_fragments / (n_fragments + 1) * undiscounted_return + 1 / (n_fragments + 1) * undiscounted_fragment_return
+        n_fragments += 1
+        v_hats.append(undiscounted_return)
+        times.append(t0 + fragment_len)
+        # Find the next visit
+        try:
+            t0 = t0 + fragment_len + ss[t0 + fragment_len:].index(state)
+        except ValueError:
+            # No more visits, terminate
+            break
+    v_hat = undiscounted_return
+    return v_hat, v_hats, times
+
+
 def td(n_states, transitions, alpha_func, discount):
     v_hat = np.zeros(n_states)
     visit = np.zeros(n_states)
