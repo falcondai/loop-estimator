@@ -101,8 +101,9 @@ class RiverSwim(MarkovDecisionProcess):
         p = np.zeros((n_actions, n_states, n_states))
         r = np.zeros((n_actions, n_states))
         # Leftmost state is less rewarding
-        r[0, 0] = 5
-        r[1, -1] = r_max
+        # XXX Scale the rewards
+        r[0, 0] = 5 / r_max
+        r[1, -1] = r_max / r_max
         for st in range(n_states):
             # Moving left is reliable
             p[0, st, max(0, st - 1)] = 1
