@@ -3,6 +3,7 @@ import numpy as np
 
 # P -> N
 def p2n(p):
+    '''Compute the expected first return time from state i to state j given the transition probabilities.'''
     # n_xy = p_xy + sum_{z ≠ y} p_xz (n_zy + 1)
     # n_xy - sum_{z ≠ y} p_xz n_zy = 1
     # Flatten n_xy by mapping (x, y) to x * d + y
@@ -23,6 +24,7 @@ def p2n(p):
 
 # N -> P
 def n2p(n):
+    '''Compute the transition probability from state i to state j given the expected first return times.'''
     return n @ np.linalg.inv(n - np.diagflat(np.diagonal(n)) + 1)
 
 
