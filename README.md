@@ -1,5 +1,5 @@
 # loop-estimator
-Policy evaluation in the infinite-horizon discounted reward setting in RL. This is the code associated with the following publication
+Policy evaluation in the infinite-horizon discounted reward setting in RL. This is the code associated with the following publication https://arxiv.org/abs/2002.06299
 ```
 Dai, Falcon Z and Walter, Matthew R. Loop Estimator for Discounted Values in Markov Reward Processes. Proceedings of AAAI. 2021.
 ```
@@ -25,7 +25,7 @@ jupyter notebook
 - Follow the comments within. Optionally load the pre-computed estimates instead of re-computing them.
 
 ## Reference
-Please cite our work if you find this repo or the associated paper useful.
+Please cite our work if you find this repo or the associated [paper](https://arxiv.org/abs/2002.06299) useful.
 
 ```bibtex
 @inproceedings{dai-walter-2021-loop,
